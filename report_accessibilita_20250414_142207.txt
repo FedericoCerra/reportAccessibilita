@@ -1,0 +1,26 @@
+Report di accessibilità per: https://saw.dibris.unige.it/~s5513839/SAW_Project/index.php
+
+Report di accessibilità web:
+
+1. Punti di forza dell'accessibilità:
+- La presenza del simbolo ☰ per il menu indica una possibile funzionalità di navigazione
+- La presenza di testo alternativo per l'immagine del video "Your browser does not support the video tag" indica un'attenzione alla accessibilità per gli utenti non vedenti
+
+2. Problemi riscontrati:
+- Mancanza di testo alternativo per le immagini di Chuck the Beaver e del bottone di supporto
+- Utilizzo del simbolo "×" per indicare il tasto di chiusura del menu, potrebbe non essere chiaro per tutti gli utenti
+- Mancanza di etichette esplicative per i campi del form di login e di registrazione, potrebbe creare confusione per gli utenti non vedenti
+- Utilizzo di colori per indicare lo stato di "Play", "Pause", "Mute" e "Unmute" del video, potrebbe non essere accessibile per gli utenti con disabilità visive
+
+3. Suggerimenti di miglioramento concreti:
+- Aggiungere testo alternativo descrittivo per tutte le immagini presenti sulla pagina
+- Utilizzare etichette esplicative per i campi del form di login e di registrazione
+- Sostituire il simbolo "×" con un testo più esplicito per indicare il tasto di chiusura del menu
+- Utilizzare indicatori visivi oltre ai colori per indicare lo stato del video (es. icone o testo aggiuntivo)
+
+4. Mancanze tecniche:
+- Mancanza di testo alternativo per le immagini di Chuck the Beaver e del bottone di supporto
+- Mancanza di etichette esplicative per i campi del form di login e di registrazione
+- Utilizzo di colori come unico indicatore per lo stato del video
+
+In generale, la pagina presenta alcuni punti di forza in termini di accessibilità, ma ci sono diverse aree in cui potrebbe essere migliorata per garantire un'esperienza più inclusiva per tutti gli utenti. Implementando i suggerimenti di miglioramento e correggendo le mancanze tecniche, si potrebbe aumentare la fruibilità del sito per un pubblico più ampio.

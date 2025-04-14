@@ -1,0 +1,23 @@
+Report di accessibilità per: https://saw.dibris.unige.it/~s5513839/SAW_Project/index.php
+
+1. Punti di forza dell’accessibilità:
+- La presenza del menu a hamburger icon (☰) indica che il sito potrebbe essere progettato per essere navigabile anche tramite tastiera.
+- La presenza di un form di login e di registrazione potrebbe indicare un'attenzione all'accessibilità per gli utenti con disabilità che necessitano di accedere al sito.
+- L'uso di tag video con controlli di riproduzione (Play, Pause, Mute, Unmute) potrebbe indicare una considerazione per gli utenti con disabilità visive o uditive.
+
+2. Problemi riscontrati:
+- Mancanza di testo alternativo per le immagini: le immagini presenti non hanno attributi "alt" che descrivono il contenuto delle immagini per gli utenti non vedenti.
+- Mancanza di etichette esplicative per i campi del form di login e di registrazione: gli utenti con disabilità visive potrebbero avere difficoltà a comprendere i campi del form senza etichette chiare.
+- La presenza di elementi non testuali come il simbolo dell'hamburger icon (☰) potrebbe non essere accessibile per gli utenti con disabilità cognitive o visive.
+
+3. Suggerimenti di miglioramento concreti:
+- Aggiungere testo alternativo alle immagini per descriverne il contenuto.
+- Inserire etichette esplicative per i campi del form di login e di registrazione.
+- Utilizzare testo esplicativo anziché solo simboli per garantire una maggiore accessibilità per tutti gli utenti.
+
+4. Eventuali mancanze tecniche:
+- Mancanza di testo alternativo per le immagini.
+- Mancanza di etichette esplicative per i campi del form di login e di registrazione.
+- Utilizzo di simboli anziché testo per indicare le azioni nel menu a hamburger icon (☰).
+
+In generale, il sito potrebbe beneficiare di una revisione più approfondita per garantire una maggiore accessibilità per tutti gli utenti, in conformità con le linee guida WCAG 2.1.
