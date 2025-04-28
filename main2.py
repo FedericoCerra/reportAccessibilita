@@ -1,54 +1,98 @@
 import subprocess
 import requests
 from bs4 import BeautifulSoup
-from openai import OpenAI
+import openai
 import json
 from datetime import datetime
 import os
+from dotenv import load_dotenv
 import sys
 import glob
+import re
 
 # === CONFIG ===
-API_KEY = "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"  # <-- Sostituisci con la tua API key!
+load_dotenv()
 MODEL = "gpt-3.5-turbo"
 TOKEN_LIMIT = 12000
-
-client = OpenAI(api_key=API_KEY)
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # === FUNZIONI ===
 
-def estrai_testo_da_url(url):
+def estrai_testo_css_js_da_url(url):
     try:
         print(f"[INFO] Scaricando contenuto da: {url}")
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
         soup = BeautifulSoup(response.text, 'html.parser')
-        for tag in soup(["script", "style", "noscript"]):
+
+        # Rimuovo <noscript>
+        for tag in soup(["noscript"]):
             tag.extract()
-        return soup.get_text(separator=' ', strip=True)[:TOKEN_LIMIT]
+
+        # Estrazione testo
+        testo = soup.get_text(separator=' ', strip=True)[:TOKEN_LIMIT]
+
+        # Estrazione CSS
+        css = ''
+        for style in soup.find_all("style"):
+            if style.string:
+                css += style.string + "\n"
+        for link in soup.find_all("link", rel="stylesheet"):
+            href = link.get("href")
+            if href:
+                full = requests.compat.urljoin(url, href)
+                try:
+                    r2 = requests.get(full, timeout=10)
+                    css += f"\n/* from {full} */\n" + r2.text + "\n"
+                except Exception as e:
+                    print(f"[WARNING] Impossibile scaricare CSS {full}: {e}")
+        css = css[:TOKEN_LIMIT]
+
+        # Estrazione JS
+        js = ''
+        for script in soup.find_all("script"):
+            if script.string and not script.get("src"):
+                js += script.string + "\n"
+        for script in soup.find_all("script", src=True):
+            src = script.get("src")
+            full = requests.compat.urljoin(url, src)
+            try:
+                r3 = requests.get(full, timeout=10)
+                js += f"\n/* from {full} */\n" + r3.text + "\n"
+            except Exception as e:
+                print(f"[WARNING] Impossibile scaricare JS {full}: {e}")
+        js = js[:TOKEN_LIMIT]
+
+        return testo, css, js
     except Exception as e:
-        print(f"[ERRORE] Impossibile estrarre testo: {e}")
-        return None
+        print(f"[ERRORE] estrai_testo_css_js_da_url: {e}")
+        return None, None, None
 
-def genera_report_chatgpt(testo, url):
+
+def genera_report_chatgpt(testo, css, js, url):
     prompt = f"""
-Sei un esperto di accessibilità web. Analizza il contenuto testuale della seguente pagina secondo le linee guida WCAG 2.1. 
-
-Genera un report con questi punti:
-1. ✅ Punti di forza
-2. ⚠️ Problemi riscontrati (con esempi)
-3. 🛠 Suggerimenti di miglioramento
-4. ❌ Errori tecnici (alt mancanti, tag semantici ecc.)
+Sei un esperto di accessibilità web. Analizza il contenuto testuale, le regole CSS e il JavaScript della seguente pagina secondo le linee guida WCAG 2.1.
 
 URL: {url}
 
-Contenuto della pagina:
-\"\"\"
+--- Testo ---
 {testo}
-\"\"\"
+
+--- CSS ---
+{css}
+
+--- JavaScript ---
+{js}
+
+Per ogni sezione, genera:
+1. ✅ Punti di forza
+2. ⚠️ Problemi riscontrati (con esempi)
+3. 🛠 Suggerimenti di miglioramento
+4. ❌ Errori tecnici (es. alt mancanti, tag semantici, contrasto, focus, script non accessibili)
 """
     try:
-        print("[INFO] Chiedendo a GPT-3.5-turbo...")
-        response = client.chat.completions.create(
+        print("[INFO] Chiedendo a ChatGPT...")
+        response = openai.chat.completions.create(
             model=MODEL,
             messages=[{"role": "user", "content": prompt}],
             temperature=0.4,
@@ -56,18 +100,12 @@ Contenuto della pagina:
         )
         return response.choices[0].message.content
     except Exception as e:
-        print(f"[ERRORE] GPT-4o fallito: {e}")
+        print(f"[ERRORE] GPT fallito: {e}")
         return None
 
 
-def esegui_lighthouse(url):
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = f"lh_{timestamp}"
-
-    os.makedirs(output_dir, exist_ok=True)
-
+def esegui_lighthouse(url, output_dir):
     print("[INFO] Eseguendo Lighthouse...")
-
     try:
         subprocess.run([
             "lighthouse.cmd" if os.name == "nt" else "lighthouse", url,
@@ -77,11 +115,9 @@ def esegui_lighthouse(url):
             "--quiet",
             "--chrome-flags=--headless"
         ], check=True)
-
-        # Trova i file appena creati
+        # Trova i file generati
         json_path = glob.glob(f"{output_dir}/*.report.json")[0]
         html_path = glob.glob(f"{output_dir}/*.report.html")[0]
-
         return json_path, html_path
     except Exception as e:
         print(f"[ERRORE] Lighthouse fallito: {e}")
@@ -92,60 +128,73 @@ def estrai_score_lighthouse(json_path):
     try:
         with open(json_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-            categorie = data["categories"]
-            return {
-                "Performance": categorie["performance"]["score"] * 100,
-                "Accessibility": categorie["accessibility"]["score"] * 100,
-                "Best Practices": categorie["best-practices"]["score"] * 100,
-                "SEO": categorie["seo"]["score"] * 100,
-                "PWA": categorie["pwa"]["score"] * 100
+            categorie = data.get("categories", {})
+            scores = {
+                "Performance": categorie.get("performance", {}).get("score", 0) * 100,
+                "Accessibility": categorie.get("accessibility", {}).get("score", 0) * 100,
+                "Best Practices": categorie.get("best-practices", {}).get("score", 0) * 100,
+                "SEO": categorie.get("seo", {}).get("score", 0) * 100,
             }
+            pwa_score = categorie.get("pwa", {}).get("score")
+            scores["PWA"] = pwa_score * 100 if pwa_score is not None else None
+            return scores
     except Exception as e:
         print(f"[ERRORE] Lettura JSON fallita: {e}")
         return {}
 
-def salva_report(url, report_gpt, scores, lighthouse_html):
+
+def salva_report(url, report_gpt, scores, json_path, html_path, reports_dir):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_file = f"report_accessibilita_{timestamp}.txt"
+    nome_file_md = os.path.join(reports_dir, f"report_accessibilita_{timestamp}.md")
     try:
-        with open(nome_file, "w", encoding="utf-8") as f:
-            f.write(f"🌐 Report di Accessibilità Web\n")
-            f.write(f"URL analizzato: {url}\n\n")
-
-            f.write("📊 RISULTATI LIGHTHOUSE:\n")
+        print(f"[INFO] Salvando report in: {reports_dir}")
+        with open(nome_file_md, "w", encoding="utf-8") as f:
+            f.write(f"# 🌐 Report di Accessibilità Web\n")
+            f.write(f"**URL analizzato:** [{url}]({url})\n\n")
+            f.write("## 📊 RISULTATI LIGHTHOUSE:\n")
             for k, v in scores.items():
-                f.write(f" - {k}: {v:.0f}/100\n")
-            f.write(f"\n🔗 Report visivo completo: {lighthouse_html}\n\n")
-
-            f.write("🤖 ANALISI GPT-4o:\n")
+                if v is None:
+                    f.write(f"- **{k}**: N/A\n")
+                else:
+                    f.write(f"- **{k}**: {v:.0f}/100\n")
+            # Link locali ai report Lighthouse
+            json_fname = os.path.basename(json_path)
+            html_fname = os.path.basename(html_path)
+            f.write(f"\n🔗 **[JSON Lighthouse]({json_fname})**, **[HTML Lighthouse]({html_fname})**\n\n")
+            f.write("## 🤖 ANALISI GPT:\n")
             f.write(report_gpt)
-
-        print(f"[✅] Report salvato in: {nome_file}")
+        print(f"[✅] Report .md salvato in: {nome_file_md}")
     except Exception as e:
         print(f"[ERRORE] Salvataggio fallito: {e}")
 
 # === MAIN ===
 def main():
     if len(sys.argv) != 2:
-        print("Uso: python report_accessibilita.py https://esempio.com")
+        print("Uso: python main2.py https://esempio.com/profilo/s5513839")
         return
 
     url = sys.argv[1]
+    # Determina matricola e cartella
+    match = re.search(r"s\w{7}", url)
+    matricola = match.group(0) if match else "sconosciuto"
+    reports_dir = os.path.join("reports", matricola)
+    os.makedirs(reports_dir, exist_ok=True)
 
-    testo = estrai_testo_da_url(url)
+    testo, css, js = estrai_testo_css_js_da_url(url)
     if not testo:
         return
 
-    report_gpt = genera_report_chatgpt(testo, url)
+    report_gpt = genera_report_chatgpt(testo, css, js, url)
     if not report_gpt:
         return
 
-    json_path, html_path = esegui_lighthouse(url)
+    # Esegui Lighthouse direttamente nella cartella della matricola
+    json_path, html_path = esegui_lighthouse(url, reports_dir)
     if not json_path:
         return
 
     scores = estrai_score_lighthouse(json_path)
-    salva_report(url, report_gpt, scores, html_path)
+    salva_report(url, report_gpt, scores, json_path, html_path, reports_dir)
 
 if __name__ == "__main__":
     main()
