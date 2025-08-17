@@ -12,25 +12,23 @@ import re
 
 # === CONFIG ===
 load_dotenv()
-MODEL = "gpt-3.5-turbo"
-TOKEN_LIMIT = 12000
+MODEL = "gpt-4o-mini"
+TOKEN_LIMIT = 1000000
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 # === FUNZIONI ===
 
-def estrai_testo_css_js_da_url(url):
+def estrai_html_css_js_da_url(url):
     try:
         print(f"[INFO] Scaricando contenuto da: {url}")
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # Rimuovo <noscript>
-        for tag in soup(["noscript"]):
-            tag.extract()
-
-        # Estrazione testo
-        testo = soup.get_text(separator=' ', strip=True)[:TOKEN_LIMIT]
+        
+        # HTML completo come stringa
+        html = response.text[:TOKEN_LIMIT]  # tagliamo se troppo lungo
+        
+        # Parsing con BeautifulSoup solo per estrarre CSS e JS
+        soup = BeautifulSoup(html, 'html.parser')
 
         # Estrazione CSS
         css = ''
@@ -62,21 +60,21 @@ def estrai_testo_css_js_da_url(url):
             except Exception as e:
                 print(f"[WARNING] Impossibile scaricare JS {full}: {e}")
         js = js[:TOKEN_LIMIT]
-
-        return testo, css, js
+        return html, css, js
     except Exception as e:
-        print(f"[ERRORE] estrai_testo_css_js_da_url: {e}")
+        print(f"[ERRORE] estrai_html_css_js_da_url: {e}")
         return None, None, None
 
 
-def genera_report_chatgpt(testo, css, js, url):
+
+def genera_report_chatgpt(html, css, js, url):
     prompt = f"""
-Sei un esperto di accessibilità web. Analizza il contenuto testuale, le regole CSS e il JavaScript della seguente pagina secondo le linee guida WCAG 2.1.
+Sei un esperto di accessibilità web. Analizza il seguente sito secondo le WCAG 2.1.
 
 URL: {url}
 
---- Testo ---
-{testo}
+--- HTML ---
+{html}
 
 --- CSS ---
 {css}
@@ -84,11 +82,19 @@ URL: {url}
 --- JavaScript ---
 {js}
 
-Per ogni sezione, genera:
-1. ✅ Punti di forza
-2. ⚠️ Problemi riscontrati (con esempi)
-3. 🛠 Suggerimenti di miglioramento
-4. ❌ Errori tecnici (es. alt mancanti, tag semantici, contrasto, focus, script non accessibili)
+Obiettivi:
+- Fornisci una panoramica generale sull'accessibilità della pagina.
+- Evidenzia in modo chiaro e conciso gli **errori principali** (es. attributi alt mancanti, uso scorretto dei tag semantici, contrasto insufficiente, problemi di focus, script non accessibili, ecc.).
+- Raggruppa le problematiche simili (non ripetere lo stesso tipo di errore più volte).
+- Elenca i **3-5 problemi più critici** con **esempi di codice se presenti**.
+- Indica eventuali **punti di forza** e **azioni prioritarie** per migliorare l'accessibilità.
+
+Output richiesto:
+1. **Sintesi generale** (livello di accessibilità percepito)
+2. **Errori critici** (in elenco puntato, con esempi evidenziati)
+3. **Punti di forza**
+4. **Raccomandazioni prioritarie**
+
 """
     try:
         print("[INFO] Chiedendo a ChatGPT...")
@@ -180,11 +186,12 @@ def main():
     reports_dir = os.path.join("reports", matricola)
     os.makedirs(reports_dir, exist_ok=True)
 
-    testo, css, js = estrai_testo_css_js_da_url(url)
-    if not testo:
+    html, css, js = estrai_html_css_js_da_url(url)
+    if not html or not css or not js:
+        print("[ERRORE] Estrazione fallita, terminazione.")
         return
 
-    report_gpt = genera_report_chatgpt(testo, css, js, url)
+    report_gpt = genera_report_chatgpt(html, css, js, url)
     if not report_gpt:
         return
 
