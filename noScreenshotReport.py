@@ -10,13 +10,13 @@ import sys
 import glob
 import re
 
-# === CONFIG ===
+
 load_dotenv()
 MODEL = "gpt-4o-mini"
 TOKEN_LIMIT = 1000000
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# === FUNZIONI ===
+
 
 def estrai_html_css_js_da_url(url):
     try:
@@ -25,9 +25,8 @@ def estrai_html_css_js_da_url(url):
         response.raise_for_status()
         
         # HTML completo come stringa
-        html = response.text[:TOKEN_LIMIT]  # tagliamo se troppo lungo
+        html = response.text[0:TOKEN_LIMIT]
         
-        # Parsing con BeautifulSoup solo per estrarre CSS e JS
         soup = BeautifulSoup(html, 'html.parser')
 
         # Estrazione CSS
@@ -121,7 +120,8 @@ def esegui_lighthouse(url, output_dir):
             "--quiet",
             "--chrome-flags=--headless"
         ], check=True)
-        # Trova i file generati
+
+#glob.glob per trovare i file generati
         json_path = glob.glob(f"{output_dir}/*.report.json")[0]
         html_path = glob.glob(f"{output_dir}/*.report.html")[0]
         return json_path, html_path
@@ -141,8 +141,7 @@ def estrai_score_lighthouse(json_path):
                 "Best Practices": categorie.get("best-practices", {}).get("score", 0) * 100,
                 "SEO": categorie.get("seo", {}).get("score", 0) * 100,
             }
-            pwa_score = categorie.get("pwa", {}).get("score")
-            scores["PWA"] = pwa_score * 100 if pwa_score is not None else None
+
             return scores
     except Exception as e:
         print(f"[ERRORE] Lettura JSON fallita: {e}")
@@ -151,36 +150,37 @@ def estrai_score_lighthouse(json_path):
 
 def salva_report(url, report_gpt, scores, json_path, html_path, reports_dir):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_file_md = os.path.join(reports_dir, f"report_accessibilita_{timestamp}.md")
+    nome_file = os.path.join(reports_dir, f"report_accessibilita_{timestamp}.md")
     try:
         print(f"[INFO] Salvando report in: {reports_dir}")
-        with open(nome_file_md, "w", encoding="utf-8") as f:
-            f.write(f"# 🌐 Report di Accessibilità Web\n")
+        with open(nome_file, "w", encoding="utf-8") as f:
+            f.write(f"# Report di Accessibilità Web\n")
             f.write(f"**URL analizzato:** [{url}]({url})\n\n")
-            f.write("## 📊 RISULTATI LIGHTHOUSE:\n")
-            for k, v in scores.items():
-                if v is None:
-                    f.write(f"- **{k}**: N/A\n")
+            f.write("## RISULTATI LIGHTHOUSE:\n")
+            for key, value in scores.items():
+                if value is None:
+                    f.write(f"- **{key}**: N/A\n")
                 else:
-                    f.write(f"- **{k}**: {v:.0f}/100\n")
-            # Link locali ai report Lighthouse
+                    f.write(f"- **{key}**: {value:.0f}/100\n")
+
             json_fname = os.path.basename(json_path)
             html_fname = os.path.basename(html_path)
-            f.write(f"\n🔗 **[JSON Lighthouse]({json_fname})**, **[HTML Lighthouse]({html_fname})**\n\n")
-            f.write("## 🤖 ANALISI GPT:\n")
+            f.write(f"\n **[JSON Lighthouse]({json_fname})**, **[HTML Lighthouse]({html_fname})**\n\n")
+            f.write("## ANALISI GPT:\n")
             f.write(report_gpt)
-        print(f"[✅] Report .md salvato in: {nome_file_md}")
+        print(f"[✅] Report .md salvato in: {nome_file}")
     except Exception as e:
         print(f"[ERRORE] Salvataggio fallito: {e}")
 
 # === MAIN ===
 def main():
     if len(sys.argv) != 2:
-        print("Uso: python main2.py https://esempio.com/profilo/s5513839")
+        print("Uso: python main2.py https://saw.dibris.unige.it/~s5513839/")
         return
 
     url = sys.argv[1]
-    # Determina matricola e cartella
+
+  
     match = re.search(r"s\w{7}", url)
     matricola = match.group(0) if match else "sconosciuto"
     reports_dir = os.path.join("reports", matricola)
@@ -195,7 +195,6 @@ def main():
     if not report_gpt:
         return
 
-    # Esegui Lighthouse direttamente nella cartella della matricola
     json_path, html_path = esegui_lighthouse(url, reports_dir)
     if not json_path:
         return

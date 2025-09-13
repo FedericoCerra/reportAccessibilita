@@ -28,7 +28,7 @@ def estrai_html_css_js_da_url(url):
         print(f"[INFO] Scaricando contenuto da: {url}")
         response = requests.get(url, timeout=10)
         response.raise_for_status()
-        html = response.text[:TOKEN_LIMIT]
+        html = response.text[0:TOKEN_LIMIT]
 
         print(f"[DEBUG] HTML scaricato: {len(response.text)} caratteri (tagliato a {len(html)})")
         print(f"[DEBUG] Anteprima HTML:\n{html[:500]}\n---\n")
@@ -148,7 +148,6 @@ Obiettivi:
 """}
     ]
 
-    # Se c'è lo screenshot, lo aggiungiamo al prompt
     if screenshot_path:
         with open(screenshot_path, "rb") as img_file:
             img_b64 = base64.b64encode(img_file.read()).decode()
@@ -180,6 +179,8 @@ def esegui_lighthouse(url, output_dir):
             "--quiet",
             "--chrome-flags=--headless"
         ], check=True)
+
+        #glob.glob per trovare i file generati
         json_path = glob.glob(f"{output_dir}/*.report.json")[0]
         html_path = glob.glob(f"{output_dir}/*.report.html")[0]
         return json_path, html_path
@@ -198,8 +199,6 @@ def estrai_score_lighthouse(json_path):
                 "Best Practices": categorie.get("best-practices", {}).get("score", 0) * 100,
                 "SEO": categorie.get("seo", {}).get("score", 0) * 100,
             }
-            pwa_score = categorie.get("pwa", {}).get("score")
-            scores["PWA"] = pwa_score * 100 if pwa_score is not None else None
             return scores
     except Exception as e:
         print(f"[ERRORE] Lettura JSON fallita: {e}")
@@ -207,13 +206,13 @@ def estrai_score_lighthouse(json_path):
 
 def salva_report(url, report_gpt, scores, json_path, html_path, screenshot_path, reports_dir):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    nome_file_md = os.path.join(reports_dir, f"report_accessibilita_{timestamp}.md")
+    nome_file = os.path.join(reports_dir, f"report_accessibilita_{timestamp}.md")
     try:
         print(f"[INFO] Salvando report in: {reports_dir}")
-        with open(nome_file_md, "w", encoding="utf-8") as f:
-            f.write(f"# 🌐 Report di Accessibilità Web\n")
+        with open(nome_file, "w", encoding="utf-8") as f:
+            f.write(f"# Report di Accessibilità Web\n")
             f.write(f"**URL analizzato:** [{url}]({url})\n\n")
-            f.write("## 📊 RISULTATI LIGHTHOUSE:\n")
+            f.write("## RISULTATI LIGHTHOUSE:\n")
             for k, v in scores.items():
                 if v is None:
                     f.write(f"- **{k}**: N/A\n")
@@ -221,19 +220,19 @@ def salva_report(url, report_gpt, scores, json_path, html_path, screenshot_path,
                     f.write(f"- **{k}**: {v:.0f}/100\n")
             json_fname = os.path.basename(json_path)
             html_fname = os.path.basename(html_path)
-            f.write(f"\n🔗 **[JSON Lighthouse]({json_fname})**, **[HTML Lighthouse]({html_fname})**\n\n")
+            f.write(f"\n**[JSON Lighthouse]({json_fname})**, **[HTML Lighthouse]({html_fname})**\n\n")
             if screenshot_path:
                 f.write(f"![Screenshot della pagina]({os.path.basename(screenshot_path)})\n\n")
-            f.write("## 🤖 ANALISI GPT:\n")
+            f.write("## ANALISI GPT:\n")
             f.write(report_gpt)
-        print(f"[✅] Report .md salvato in: {nome_file_md}")
+        print(f"[✅] Report .md salvato in: {nome_file}")
     except Exception as e:
         print(f"[ERRORE] Salvataggio fallito: {e}")
 
 # === MAIN ===
 def main():
     if len(sys.argv) != 2:
-        print("Uso: python main.py https://esempio.com/profilo/s5513839")
+        print("Uso: python main.py https://saw.dibris.unige.it/~s5513839/")
         return
 
     url = sys.argv[1]
