@@ -6,8 +6,7 @@ from openai import OpenAI
 
 load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-MODEL = "gpt-4o-mini"
-
+MODEL = "gpt-4.1"
 
 
 def raccogli_report(base_dir="reports"):
@@ -34,6 +33,7 @@ def raccogli_report(base_dir="reports"):
     
     return reports
 
+
 def analizza_report_comuni(reports):
     """Invia tutti i report a GPT e chiede gli errori più comuni"""
     if not reports:
@@ -46,17 +46,20 @@ def analizza_report_comuni(reports):
     ])
 
     prompt = f"""
+    
 Sei un esperto di accessibilità web. Ti fornisco i report di più siti web (uno per matricola).
 Analizza i contenuti e dimmi:
 
 1. Quali sono gli errori più comuni tra i vari report.
 2. Quante matricole presentano ciascun errore.
-3. Se ci sono differenze interessanti (alcuni siti che non hanno un errore comune).
+3. Voglio una tabella con colonne contenenti id e righe gli errori relativi agli id. mi racomando invece delle matricole metti id fittizi in stile 1, 2, 3... fino alla fine
 4. Un elenco sintetico dei problemi principali da affrontare in priorità.
+
 
 Ecco i report:
 
 {testo}
+
 """
     try:
         print("[INFO] Chiedendo a GPT di analizzare i report...")
@@ -71,14 +74,25 @@ Ecco i report:
         print(f"[ERRORE] GPT fallito: {e}")
         return None
 
+
 # === MAIN ===
 def main():
     reports = raccogli_report("reports")
     risultato = analizza_report_comuni(reports)
     
     if risultato:
-        print("\n ANALISI DEI REPORT \n")
+        # crea cartella finalReport se non esiste
+        output_dir = "finalReport"
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, "report.md")
+
+        # salva il risultato in file
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(risultato)
+        
+        print(f"\n[INFO] Analisi salvata in {output_path}\n")
         print(risultato)
+
 
 if __name__ == "__main__":
     main()

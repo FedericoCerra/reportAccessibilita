@@ -1,3 +1,4 @@
 .env
-reports/
 screenGenerator.py
+finalReport/
+reports/

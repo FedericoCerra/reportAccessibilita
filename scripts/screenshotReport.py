@@ -31,7 +31,6 @@ def estrai_html_css_js_da_url(url):
         html = response.text[0:TOKEN_LIMIT]
 
         print(f"[DEBUG] HTML scaricato: {len(response.text)} caratteri (tagliato a {len(html)})")
-        print(f"[DEBUG] Anteprima HTML:\n{html[:500]}\n---\n")
 
         soup = BeautifulSoup(html, 'html.parser')
 
@@ -52,9 +51,6 @@ def estrai_html_css_js_da_url(url):
                     print(f"[WARNING] Impossibile scaricare CSS {full}: {e}")
         css = css[:TOKEN_LIMIT]
 
-        print(f"[DEBUG] CSS estratto: {len(css)} caratteri")
-        print(f"[DEBUG] Anteprima CSS:\n{css[:300]}\n---\n")
-
         # JS
         js = ''
         for script in soup.find_all("script"):
@@ -71,10 +67,8 @@ def estrai_html_css_js_da_url(url):
                 print(f"[WARNING] Impossibile scaricare JS {full}: {e}")
         js = js[:TOKEN_LIMIT]
 
-        print(f"[DEBUG] JS estratto: {len(js)} caratteri")
-        print(f"[DEBUG] Anteprima JS:\n{js[:300]}\n---\n")
 
-        return html, css, js
+        return html, css, None
     except Exception as e:
         print(f"[ERRORE] estrai_html_css_js_da_url: {e}")
         return None, None, None
@@ -126,6 +120,7 @@ def screenshot_full_cdp(url, output_path='screenshot.png', width=1920):
 def genera_report_chatgpt(html, css, js, url, screenshot_path=None):
     user_content = [
         {"type": "text", "text": f"""
+         
 Sei un esperto di accessibilità web. Analizza il seguente sito secondo le WCAG 2.1.
 
 URL: {url}
@@ -141,10 +136,12 @@ URL: {url}
 
 Obiettivi:
 - Panoramica generale sull'accessibilità della pagina.
-- Evidenzia gli errori principali (alt mancanti, semantica errata, contrasto insufficiente, focus, script non accessibili, ecc.).
+- Evidenzia gli errori principali (alt mancanti, semantica errata, contrasto insufficiente, 
+    focus, script non accessibili, ecc.).
 - Raggruppa le problematiche simili.
 - Elenca i 3-5 problemi più critici con esempi.
 - Indica i punti di forza e le azioni prioritarie.
+
 """}
     ]
 
@@ -156,7 +153,7 @@ Obiettivi:
             )
 
     try:
-        print("[INFO] Chiedendo a ChatGPT...")
+        
         response = client.chat.completions.create(
             model=MODEL,
             messages=[{"role": "user", "content": user_content}],
@@ -164,8 +161,9 @@ Obiettivi:
             max_tokens=2000
         )
         return response.choices[0].message.content
+    
     except Exception as e:
-        print(f"[ERRORE] GPT fallito: {e}")
+        print(f"[ERRORE] utilizzo API fallito: {e}")
         return None
 
 def esegui_lighthouse(url, output_dir):
